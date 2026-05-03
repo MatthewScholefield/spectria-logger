@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keras-spectra"
+version = "0.1.0"
+description = "Keras callback + server for live training visualization in Spectra"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "Matthew D. Scholefield" },
+]
+keywords = ["keras", "tensorboard", "training", "visualization", "spectra"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Keras",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []
+
+[project.optional-dependencies]
+keras = ["keras>=3.0"]
+server = ["starlette>=0.37", "uvicorn>=0.29"]
+
+[project.scripts]
+keras-spectra = "keras_spectra.cli:main"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
