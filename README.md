@@ -1,19 +1,26 @@
-# spectria-logger
+# spectria-python
 
 JSONL logging library + HTTP/SSE server for live training visualization in [Spectria](https://github.com/MatthewScholefield/spectria).
 
 A lightweight alternative to TensorBoard with a cleaner, more intentional visualization experience.
 
+This repo publishes two packages:
+
+| Package | Description |
+|---|---|
+| `spectria-logger` | Logging library (`spectria.logger`) — zero dependencies |
+| `spectria` | Server + CLI — depends on `spectria-logger`, `starlette`, `uvicorn` |
+
 ## Usage
 
-### In your training script — log metrics (generic)
+### In your training script — log metrics
 
 ```bash
 pip install spectria-logger
 ```
 
 ```python
-from spectria_logger import RunWriter
+from spectria.logger import RunWriter
 
 writer = RunWriter(project="mnist", run="baseline", config={"lr": 0.01})
 writer.write_row({"epoch": 0, "loss": 0.69, "accuracy": 0.51})
@@ -26,7 +33,7 @@ pip install spectria-logger[keras]
 ```
 
 ```python
-from spectria_logger import SpectriaCallback, as_keras_callback
+from spectria.logger import SpectriaCallback, as_keras_callback
 
 model.fit(x, y, callbacks=[
     as_keras_callback(SpectriaCallback(
@@ -50,10 +57,8 @@ as_keras_callback(SpectriaCallback(
 
 ### Visualize — serve the logs
 
-No install needed:
-
 ```bash
-uvx --from "spectria-logger[server]" spectria serve
+uvx spectria serve
 ```
 
 Then open Spectria, click **Connect**, enter `http://localhost:8420`, and select your runs.

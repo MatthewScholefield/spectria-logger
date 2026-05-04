@@ -3,32 +3,22 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "spectria-logger"
+name = "spectria"
 version = "0.1.0"
-description = "JSONL logging library for live training visualization in Spectria"
-readme = "README.md"
+description = "HTTP/SSE server for live training visualization in Spectria"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [
     { name = "Matthew D. Scholefield" },
 ]
-keywords = ["training", "visualization", "spectria", "logging", "ml"]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "Programming Language :: Python :: 3",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-]
-dependencies = []
-
-[project.optional-dependencies]
-keras = ["keras>=3.0"]
-server = ["starlette>=0.37", "uvicorn>=0.29"]
-all = ["spectria-logger[server,keras]"]
+dependencies = ["spectria-logger", "starlette>=0.37", "uvicorn>=0.29"]
 
 [project.scripts]
-spectria = "spectria_logger.cli:main"
+spectria = "spectria.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["spectria*"]
 
 [tool.ruff]
 target-version = "py39"

@@ -13,7 +13,7 @@ class SpectriaCallback:
 
     Usage::
 
-        from spectria_logger import SpectriaCallback
+        from spectria.logger import SpectriaCallback
 
         model.fit(x, y, callbacks=[
             SpectriaCallback(project="mnist", run="baseline",
@@ -117,7 +117,7 @@ def as_keras_callback(callback: SpectriaCallback):
 
     Usage::
 
-        from spectria_logger import SpectriaCallback, as_keras_callback
+        from spectria.logger import SpectriaCallback, as_keras_callback
 
         model.fit(x, y, callbacks=[
             as_keras_callback(SpectriaCallback(project="mnist", run="baseline"))

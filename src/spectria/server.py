@@ -7,7 +7,7 @@ import json
 import time
 from pathlib import Path
 
-from .writer import RunWriter
+from .logger.writer import RunWriter
 
 
 def _allowed_origins() -> list[str]:

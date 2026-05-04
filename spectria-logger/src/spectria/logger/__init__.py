@@ -1,4 +1,4 @@
-"""spectria-logger: JSONL logging for live training visualization in Spectria."""
+"""Spectria logger: JSONL logging for live training visualization."""
 
 from .keras import SpectriaCallback, as_keras_callback
 from .writer import RunWriter, dump_run
