@@ -50,8 +50,8 @@ class SpectriaCallback:
         try:
             import keras
 
-            if hasattr(keras, "Callback"):
-                return keras.Callback
+            if hasattr(keras, "callbacks") and hasattr(keras.callbacks, "Callback"):
+                return keras.callbacks.Callback
         except ImportError:
             pass
         raise ImportError(
@@ -125,7 +125,7 @@ def as_keras_callback(callback: SpectriaCallback):
     """
     import keras
 
-    class _SpectriaKerasCallback(keras.Callback):
+    class _SpectriaKerasCallback(keras.callbacks.Callback):
         def __init__(self, spectria_cb: SpectriaCallback):
             super().__init__()
             self._cb = spectria_cb
