@@ -96,7 +96,8 @@ def _serve_dev(args):
         sys.exit(1)
 
     app = create_app(logdir=args.logdir)
-    api_url = f"http://{args.host}:{args.port}"
+    frontend_host = "localhost" if args.host == "0.0.0.0" else args.host
+    api_url = f"http://{frontend_host}:{args.port}"
 
     # Start API server in a background thread
     api_thread = threading.Thread(
