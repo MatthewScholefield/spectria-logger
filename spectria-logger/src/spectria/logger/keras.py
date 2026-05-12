@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .writer import RunWriter
+from .writer import RunExistsMode, RunWriter
 
 
 class SpectriaCallback:
@@ -29,6 +29,7 @@ class SpectriaCallback:
         config: dict[str, Any] | None = None,
         logdir: str | Path = "./spectria_logs",
         include_batch_metrics: bool = False,
+        if_exists: RunExistsMode = "rename",
     ) -> None:
         self.project = project
         self.run = run or _auto_run_name()
@@ -42,6 +43,7 @@ class SpectriaCallback:
             run=self.run,
             baseline=self.baseline,
             config=self.config,
+            if_exists=if_exists,
         )
         self._current_epoch = 0
 

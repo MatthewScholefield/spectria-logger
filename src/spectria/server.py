@@ -97,38 +97,37 @@ def create_app(logdir: str | Path):
         events_path = logdir / project_name / run_id / "events.jsonl"
 
         async def generate():
-            # First, send all existing rows
-            rows = RunWriter.read_rows(events_path)
+            # Send status event first
+            is_running = False
+            if events_path.exists():
+                mtime = events_path.stat().st_mtime
+                if time.time() - mtime < 120:
+                    is_running = True
+            yield f"event: status\ndata: {json.dumps({'status': 'running' if is_running else 'completed'})}\n\n"
+
+            # Send all existing rows using offset tracking
+            rows, offset = RunWriter.read_rows_from_offset(events_path)
             for row in rows:
                 yield f"event: row\ndata: {json.dumps(row, default=str)}\n\n"
 
-            # Then poll for new rows
-            sent_count = len(rows)
             idle_ticks = 0
-
             while True:
                 await asyncio.sleep(0.5)
-
-                current_rows = RunWriter.read_rows(events_path)
-                new_rows = current_rows[sent_count:]
+                new_rows, offset = RunWriter.read_rows_from_offset(events_path, offset)
 
                 if new_rows:
                     idle_ticks = 0
                     for row in new_rows:
                         yield f"event: row\ndata: {json.dumps(row, default=str)}\n\n"
-                    sent_count = len(current_rows)
                 else:
                     idle_ticks += 1
 
-                # Check if training is still running (file was modified recently)
                 if events_path.exists():
                     mtime = events_path.stat().st_mtime
-                    if time.time() - mtime > 120 and sent_count > 0:
-                        # File hasn't been modified in 2 minutes — likely done
+                    if time.time() - mtime > 120 and len(rows) + idle_ticks > 0:
                         yield "event: complete\ndata: {}\n\n"
                         break
 
-                # Safety: stop after 24 hours
                 if idle_ticks > 172800:
                     yield "event: complete\ndata: {}\n\n"
                     break

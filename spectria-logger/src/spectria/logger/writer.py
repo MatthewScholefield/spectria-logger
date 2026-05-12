@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+RunExistsMode = Literal["rename", "overwrite", "append"]
 
 
 class RunWriter:
@@ -25,6 +27,7 @@ class RunWriter:
         config: dict[str, Any] | None = None,
         created_at: int | None = None,
         finished_at: int | None = None,
+        if_exists: RunExistsMode = "append",
     ) -> None:
         self.logdir = Path(logdir)
         self.project = project
@@ -38,6 +41,13 @@ class RunWriter:
         self._run_dir.mkdir(parents=True, exist_ok=True)
         self._events_path = self._run_dir / "events.jsonl"
         self._written_header = self._events_path.exists() and self._events_path.stat().st_size > 0
+
+        if self._written_header:
+            if if_exists == "rename":
+                self._rename_run()
+            elif if_exists == "overwrite":
+                self._events_path.write_text("")
+                self._written_header = False
 
     def write_header(self) -> None:
         if self._written_header:
@@ -57,6 +67,21 @@ class RunWriter:
         with open(self._events_path, "a") as f:
             f.write(f"# {json.dumps(header)}\n")
         self._written_header = True
+
+    def _rename_run(self) -> None:
+        i = 1
+        while True:
+            new_run = f"{self.run} ({i})"
+            new_dir = self.logdir / self.project / new_run
+            new_path = new_dir / "events.jsonl"
+            if not new_path.exists() or new_path.stat().st_size == 0:
+                self.run = new_run
+                self._run_dir = new_dir
+                self._run_dir.mkdir(parents=True, exist_ok=True)
+                self._events_path = new_path
+                self._written_header = False
+                return
+            i += 1
 
     def has_rows(self) -> bool:
         """Check if any data rows exist in the events file."""
@@ -122,6 +147,31 @@ class RunWriter:
                 except json.JSONDecodeError:
                     continue
         return rows
+
+    @staticmethod
+    def read_rows_from_offset(path: Path, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
+        """Read data rows from a JSONL file starting at byte offset.
+
+        Returns (rows, new_offset) where new_offset is the byte position after the last byte read.
+        """
+        if not path.exists():
+            return [], 0
+        rows: list[dict[str, Any]] = []
+        with open(path) as f:
+            f.seek(offset)
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                try:
+                    rows.append(json.loads(stripped))
+                except json.JSONDecodeError:
+                    continue
+            new_offset = f.tell()
+        return rows, new_offset
 
 
 def dump_run(
