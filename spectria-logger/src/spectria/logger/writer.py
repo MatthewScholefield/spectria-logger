@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import time
 from pathlib import Path
 from typing import Any, Literal
 
@@ -67,6 +69,20 @@ class RunWriter:
         with open(self._events_path, "a") as f:
             f.write(f"# {json.dumps(header)}\n")
         self._written_header = True
+
+        # Write PID file for liveness detection (only for live runs, not dump_run)
+        if self._finished_at is None:
+            (self._run_dir / "events.pid").write_text(str(os.getpid()))
+
+    def finish(self) -> None:
+        """Remove the PID file to signal the run is complete."""
+        pid_path = self._run_dir / "events.pid"
+        try:
+            existing_pid = int(pid_path.read_text().strip())
+            if existing_pid == os.getpid():
+                pid_path.unlink()
+        except (ValueError, OSError):
+            pass
 
     def _rename_run(self) -> None:
         i = 1
@@ -143,9 +159,12 @@ class RunWriter:
                 if not line or line.startswith("#"):
                     continue
                 try:
-                    rows.append(json.loads(line))
+                    row = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                if not row:
+                    continue
+                rows.append(row)
         return rows
 
     @staticmethod
@@ -167,11 +186,52 @@ class RunWriter:
                 if not stripped or stripped.startswith("#"):
                     continue
                 try:
-                    rows.append(json.loads(stripped))
+                    row = json.loads(stripped)
                 except json.JSONDecodeError:
                     continue
+                if not row:
+                    continue
+                rows.append(row)
             new_offset = f.tell()
         return rows, new_offset
+
+    @staticmethod
+    def is_run_live(events_path: Path) -> bool:
+        """Check if a run is still active.
+
+        Prefer the PID file when present, but fall back to a short mtime grace
+        period so externally generated live files without a PID marker don't get
+        marked complete between writes.
+        """
+        header = RunWriter.read_header(events_path)
+        if header and header.get("finished_at") is not None:
+            return False
+
+        pid_path = events_path.parent / "events.pid"
+        if pid_path.exists():
+            try:
+                pid = int(pid_path.read_text().strip())
+                os.kill(pid, 0)
+                return True
+            except ProcessLookupError:
+                pass
+            except PermissionError:
+                return True
+            except (ValueError, OSError):
+                pass
+            # Stale PID file — clean it up
+            try:
+                pid_path.unlink()
+            except OSError:
+                pass
+
+        if not events_path.exists():
+            return False
+
+        try:
+            return (time.time() - events_path.stat().st_mtime) < 2.0
+        except OSError:
+            return False
 
 
 def dump_run(
