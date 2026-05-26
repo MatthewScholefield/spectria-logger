@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 from pathlib import Path
 
 from .logger.writer import RunWriter
@@ -53,19 +52,16 @@ def create_app(logdir: str | Path):
             events_path = run_dir / "events.jsonl"
             header = RunWriter.read_header(events_path)
 
-            # Determine status by checking if the file is still being written to
+            # Determine status by PID file liveness
             finished_at = None
             status = "completed"
-            if events_path.exists():
-                mtime = events_path.stat().st_mtime
-                if time.time() - mtime < 120:  # active within last 2 minutes
-                    status = "running"
-                else:
-                    # Prefer header timestamps over file mtime for dump-spectria data
-                    if header:
-                        finished_at = header.get("finished_at") or header.get("created_at")
-                    if not finished_at:
-                        finished_at = int(mtime)
+            if RunWriter.is_run_live(events_path):
+                status = "running"
+            else:
+                if header:
+                    finished_at = header.get("finished_at") or header.get("created_at")
+                if not finished_at and events_path.exists():
+                    finished_at = int(events_path.stat().st_mtime)
 
             runs.append({
                 "run_id": run_dir.name,
@@ -84,11 +80,7 @@ def create_app(logdir: str | Path):
         run_id = request.path_params["run"]
         events_path = logdir / project_name / run_id / "events.jsonl"
         rows = RunWriter.read_rows(events_path)
-        status = "completed"
-        if events_path.exists():
-            mtime = events_path.stat().st_mtime
-            if time.time() - mtime < 120:
-                status = "running"
+        status = "running" if RunWriter.is_run_live(events_path) else "completed"
         return JSONResponse({"rows": rows, "status": status})
 
     async def stream_events(request: Request) -> StreamingResponse:
@@ -98,11 +90,7 @@ def create_app(logdir: str | Path):
 
         async def generate():
             # Send status event first
-            is_running = False
-            if events_path.exists():
-                mtime = events_path.stat().st_mtime
-                if time.time() - mtime < 120:
-                    is_running = True
+            is_running = RunWriter.is_run_live(events_path)
             yield f"event: status\ndata: {json.dumps({'status': 'running' if is_running else 'completed'})}\n\n"
 
             # Send all existing rows using offset tracking
@@ -110,25 +98,20 @@ def create_app(logdir: str | Path):
             for row in rows:
                 yield f"event: row\ndata: {json.dumps(row, default=str)}\n\n"
 
-            idle_ticks = 0
+            # If already completed, no need to poll
+            if not is_running:
+                yield "event: complete\ndata: {}\n\n"
+                return
+
             while True:
                 await asyncio.sleep(0.5)
                 new_rows, offset = RunWriter.read_rows_from_offset(events_path, offset)
 
-                if new_rows:
-                    idle_ticks = 0
-                    for row in new_rows:
-                        yield f"event: row\ndata: {json.dumps(row, default=str)}\n\n"
-                else:
-                    idle_ticks += 1
+                for row in new_rows:
+                    yield f"event: row\ndata: {json.dumps(row, default=str)}\n\n"
 
-                if events_path.exists():
-                    mtime = events_path.stat().st_mtime
-                    if time.time() - mtime > 120 and len(rows) + idle_ticks > 0:
-                        yield "event: complete\ndata: {}\n\n"
-                        break
-
-                if idle_ticks > 172800:
+                # Check if the run has finished (PID file removed)
+                if not RunWriter.is_run_live(events_path) and not new_rows:
                     yield "event: complete\ndata: {}\n\n"
                     break
 

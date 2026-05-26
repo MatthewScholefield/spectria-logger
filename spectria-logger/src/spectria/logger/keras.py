@@ -90,7 +90,7 @@ class SpectriaCallback:
         self._writer.write_row(row)
 
     def on_train_end(self, logs=None):
-        pass
+        self._writer.finish()
 
     def get_keras_callback(self):
         """Return a dict-based callback compatible with keras.Callback interface.
