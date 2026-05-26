@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spectria-logger"
-version = "0.3.0"
+version = "0.3.1"
 description = "JSONL logging library for live training visualization in Spectria"
 readme = "README.md"
 license = "MIT"
